@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 
 import lombok.extern.slf4j.Slf4j;
 import mk.seavus.demoprojcet.entity.User;
-import mk.seavus.demoprojcet.helper.UserHelper;
+import mk.seavus.demoprojcet.exception.UserErrorMessages;
+import mk.seavus.demoprojcet.exception.UserException;
+import mk.seavus.demoprojcet.mapper.UserMapper;
 import mk.seavus.demoprojcet.repository.UserRepository;
 import mk.seavus.demoprojcet.service.IUserService;
 import mk.seavus.model.UserDto;
@@ -15,20 +17,23 @@ import mk.seavus.model.UserDto;
 @Slf4j
 @Service
 public class UserServiceImpl implements IUserService {
-	
+
 	private UserRepository repository;
+	private final UserMapper userMapper;
 	
-	public UserServiceImpl(UserRepository repository) {
+	public UserServiceImpl(UserRepository repository, UserMapper userMapper) {
+		this.userMapper = userMapper;
 		this.repository = repository;
 	}
 
 	@Override
 	public void createUser(UserDto userDto) {
 		try {
-			repository.save(UserHelper.fillUser(userDto));
+			repository.save(userMapper.convertToUser(userDto));
 			log.info("User is stored");
 		} catch (Exception e) {
 			log.error(e.getMessage());
+			throw new UserException(e.getMessage());
 		}
 	}
 
@@ -39,8 +44,8 @@ public class UserServiceImpl implements IUserService {
 			log.info("User is deleted!");
 		} catch (Exception e) {
 			log.error(e.getMessage());
+			throw new UserException(e.getMessage());
 		}
-		
 	}
 
 	@Override
@@ -49,12 +54,13 @@ public class UserServiceImpl implements IUserService {
 		try {
 			List<User> users = repository.findAll();
 			users.stream().forEach(u -> {
-				UserDto userDto = UserHelper.fillUserDto(u);
+				UserDto userDto = userMapper.convertToUserDto(u);
 				usersDto.add(userDto);
 			});
 			log.info("All users are read");
 		} catch (Exception e) {
 			log.error(e.getMessage());
+			throw new UserException(e.getMessage());
 		}
 		return usersDto;
 	}
@@ -63,11 +69,14 @@ public class UserServiceImpl implements IUserService {
 	public UserDto getUserById(Long id) {
 		UserDto userDto = null;
 		try {
-			User user = repository.findById(id).orElseThrow();
-			userDto = UserHelper.fillUserDto(user);
+			User user = repository.findById(id)
+					.orElseThrow(() -> new UserException(UserErrorMessages.USER_ID.getMessage(), id.toString(),
+							UserErrorMessages.DOES_NOT_EXISTS.getMessage()));
+			userDto = userMapper.convertToUserDto(user);
 			log.info("User is read");
 		} catch (Exception e) {
 			log.error(e.getMessage());
+			throw new UserException(e.getMessage());
 		}
 		return userDto;
 	}
@@ -76,11 +85,14 @@ public class UserServiceImpl implements IUserService {
 	public UserDto getUserByName(String userName) {
 		UserDto userDto = null;
 		try {
-			User user = repository.findByUserName(userName).orElseThrow();
-			userDto = UserHelper.fillUserDto(user);
+			User user = repository.findByUserName(userName)
+					.orElseThrow(() -> new UserException(UserErrorMessages.USER_USERNAME.getMessage(), userName,
+							UserErrorMessages.DOES_NOT_EXISTS.getMessage()));
+			userDto = userMapper.convertToUserDto(user);
 			log.info("User is read");
 		} catch (Exception e) {
 			log.error(e.getMessage());
+			throw new UserException(e.getMessage());
 		}
 		return userDto;
 	}
@@ -88,16 +100,19 @@ public class UserServiceImpl implements IUserService {
 	@Override
 	public void updateUser(Long id, UserDto userDto) {
 		try {
-			User user = repository.findById(id).orElseThrow();
+			User user = repository.findById(id)
+					.orElseThrow(() -> new UserException(UserErrorMessages.USER_ID.getMessage(), id.toString(),
+							UserErrorMessages.DOES_NOT_EXISTS.getMessage()));
 			if (userDto.getId() != null || userDto.getUsername() != null)
-				throw new Exception();
-			UserHelper.updateUser(userDto, user);
+				throw new UserException(UserErrorMessages.ID_USERNAME_CANT_CHANGE.getMessage());
+			userMapper.updateUserFromDto(userDto, user);
 			repository.save(user);
 			log.info("User is updated");
 		} catch (Exception e) {
 			log.error(e.getMessage());
+			throw new UserException(e.getMessage());
 		}
-		
+
 	}
 
 }
